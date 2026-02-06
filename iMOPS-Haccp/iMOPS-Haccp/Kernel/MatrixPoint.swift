@@ -71,9 +71,10 @@ final class TheBrain {
 
     /// Configure TheBrain with persistence layer.
     /// Called once during app boot after SwiftData is initialized.
-    func configure(modelContext: ModelContext) {
-        self.journal = Journal(modelContext: modelContext)
-        self.auditTrail = AuditTrail(modelContext: modelContext)
+    /// Journal + AuditTrail get their own queues + ModelContexts (kein Deadlock).
+    func configure(modelContainer: ModelContainer) {
+        self.journal = Journal(modelContainer: modelContainer)
+        self.auditTrail = AuditTrail(modelContainer: modelContainer)
         print("iMOPS-KERNEL: Persistence layer configured. Journal + AuditTrail active.")
     }
 
