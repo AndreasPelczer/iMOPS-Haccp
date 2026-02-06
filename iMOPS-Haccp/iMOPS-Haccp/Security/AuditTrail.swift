@@ -63,11 +63,11 @@ final class AuditTrail {
                 userId: userId,
                 deviceId: deviceIdentifier(),
                 details: details,
-                hash: newHash
+                chainHash: newHash
             )
 
             context.insert(entry)
-            lastHash = entry.hash
+            lastHash = entry.chainHash
 
             try? context.save()
         }
@@ -91,11 +91,11 @@ final class AuditTrail {
                     userId: entry.userId,
                     timestamp: entry.timestamp
                 )
-                if computed != entry.hash {
+                if computed != entry.chainHash {
                     print("iMOPS-AUDIT: INTEGRITY VIOLATION at entry \(entry.id)")
                     return false
                 }
-                expectedHash = entry.hash
+                expectedHash = entry.chainHash
             }
             return true
         }
@@ -170,6 +170,6 @@ final class AuditTrail {
         )
         descriptor.fetchLimit = 1
         let results = (try? context.fetch(descriptor)) ?? []
-        return results.first?.hash ?? "GENESIS"
+        return results.first?.chainHash ?? "GENESIS"
     }
 }

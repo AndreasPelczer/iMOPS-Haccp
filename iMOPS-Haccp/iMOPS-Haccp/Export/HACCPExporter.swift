@@ -101,7 +101,7 @@ struct HACCPExporter {
                 entry.userId,
                 entry.deviceId,
                 entry.details ?? "",
-                entry.hash
+                entry.chainHash
             ]
             csv += fields.joined(separator: ";") + "\n"
         }

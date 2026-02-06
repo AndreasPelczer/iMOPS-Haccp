@@ -22,7 +22,8 @@ class AuditLogEntry {
     var deviceId: String
     var ipAddress: String?
     var details: String?
-    var hash: String              // SHA-256 chain: H(previous_hash + current_data)
+    var chainHash: String         // SHA-256 chain: H(previous_hash + current_data)
+                                  // "hash" ist reserviert (Hashable-Protokoll) → chainHash
 
     init(id: UUID = UUID(),
          timestamp: Date = Date(),
@@ -32,7 +33,7 @@ class AuditLogEntry {
          deviceId: String,
          ipAddress: String? = nil,
          details: String? = nil,
-         hash: String) {
+         chainHash: String) {
         self.id = id
         self.timestamp = timestamp
         self.action = action
@@ -41,6 +42,6 @@ class AuditLogEntry {
         self.deviceId = deviceId
         self.ipAddress = ipAddress
         self.details = details
-        self.hash = hash
+        self.chainHash = chainHash
     }
 }
