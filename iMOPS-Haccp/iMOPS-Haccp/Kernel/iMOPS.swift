@@ -7,21 +7,49 @@
 
 
 import SwiftUI
+import SwiftData
 
 @main
 struct iMOPS_OS_COREApp: App {
     // Kernel Bootloader
     let brain = TheBrain.shared
+    let modelContainer: ModelContainer
 
     init() {
-        // Kernel-Zündung: Seed (Demo-Daten)
-        brain.seed()
+        // 1) SwiftData Schema aufsetzen (Persistence Layer)
+        let schema = Schema([
+            iMOPSEvent.self,
+            HACCPRecord.self,
+            AuditLogEntry.self
+        ])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+
+        do {
+            modelContainer = try ModelContainer(for: schema, configurations: [config])
+        } catch {
+            fatalError("iMOPS-KERNEL: SwiftData Initialisierung fehlgeschlagen: \(error)")
+        }
+
+        // 2) TheBrain mit Persistence konfigurieren
+        let context = ModelContext(modelContainer)
+        brain.configure(modelContext: context)
+
+        // 3) Boot-Strategie: Journal vorhanden → Rebuild, sonst → Seed
+        if let journal = brain.journal, journal.eventCount > 0 {
+            // Crash-Recovery: RAM aus Journal rekonstruieren
+            let events = journal.fetchAll()
+            brain.rebuildFromJournal(events)
+            print("iMOPS-KERNEL: State rebuilt from \(events.count) events.")
+        } else {
+            // Erststart: Demo-Daten laden
+            brain.seed()
+        }
     }
 
     var body: some Scene {
         WindowGroup {
             RootTerminalView()
         }
+        .modelContainer(modelContainer)
     }
 }
-

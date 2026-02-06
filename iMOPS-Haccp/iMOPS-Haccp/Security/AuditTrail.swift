@@ -1,0 +1,142 @@
+//
+//  AuditTrail.swift
+//  iMOPS-Haccp
+//
+//  HACCP-konformer Audit-Trail mit Blockchain-Prinzip.
+//  Jede Aktion wird unveränderlich protokolliert.
+//  Manipulation ist über Hash-Verifikation erkennbar.
+//
+//  "Code lügt nicht. Code ZEIGT."
+//
+
+import Foundation
+import SwiftData
+import CryptoKit
+#if os(iOS)
+import UIKit
+#endif
+
+/// HACCP-compliant audit trail with blockchain-style hash chaining.
+@available(iOS 17.0, *)
+final class AuditTrail {
+    private let modelContext: ModelContext
+    private var lastHash: String
+
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
+        self.lastHash = Self.fetchLastHash(from: modelContext)
+    }
+
+    // MARK: - Log
+
+    /// Log an action to the audit trail.
+    /// The hash chain ensures tamper-evidence.
+    func log(action: String, key: String? = nil, userId: String, details: String? = nil) {
+        let now = Date()
+        let newHash = computeHash(
+            previousHash: lastHash,
+            action: action,
+            key: key,
+            userId: userId,
+            timestamp: now
+        )
+
+        let entry = AuditLogEntry(
+            timestamp: now,
+            action: action,
+            key: key,
+            userId: userId,
+            deviceId: deviceIdentifier(),
+            details: details,
+            hash: newHash
+        )
+
+        modelContext.insert(entry)
+        lastHash = entry.hash
+
+        try? modelContext.save()
+    }
+
+    // MARK: - Verify
+
+    /// Verify the integrity of the entire audit chain.
+    /// Returns true if no tampering is detected.
+    func verifyIntegrity() -> Bool {
+        let entries = fetchAllEntries()
+        var expectedHash = "GENESIS"
+
+        for entry in entries {
+            let computed = computeHash(
+                previousHash: expectedHash,
+                action: entry.action,
+                key: entry.key,
+                userId: entry.userId,
+                timestamp: entry.timestamp
+            )
+            if computed != entry.hash {
+                print("iMOPS-AUDIT: INTEGRITY VIOLATION at entry \(entry.id)")
+                return false
+            }
+            expectedHash = entry.hash
+        }
+        return true
+    }
+
+    // MARK: - Fetch
+
+    /// Fetch all audit log entries ordered by timestamp.
+    func fetchAllEntries() -> [AuditLogEntry] {
+        let descriptor = FetchDescriptor<AuditLogEntry>(
+            sortBy: [SortDescriptor(\.timestamp, order: .forward)]
+        )
+        return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    /// Fetch entries for a specific calendar day.
+    func fetchEntries(for date: Date) -> [AuditLogEntry] {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+
+        let predicate = #Predicate<AuditLogEntry> { entry in
+            entry.timestamp >= startOfDay && entry.timestamp < endOfDay
+        }
+        let descriptor = FetchDescriptor<AuditLogEntry>(
+            predicate: predicate,
+            sortBy: [SortDescriptor(\.timestamp, order: .forward)]
+        )
+        return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    /// Total number of audit entries.
+    var entryCount: Int {
+        let descriptor = FetchDescriptor<AuditLogEntry>()
+        return (try? modelContext.fetchCount(descriptor)) ?? 0
+    }
+
+    // MARK: - Private
+
+    private func computeHash(previousHash: String, action: String, key: String?, userId: String, timestamp: Date) -> String {
+        let payload = "\(previousHash)|\(action)|\(key ?? "")|\(userId)|\(timestamp.timeIntervalSince1970)"
+        let data = Data(payload.utf8)
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func deviceIdentifier() -> String {
+        #if os(iOS)
+        return UIDevice.current.identifierForVendor?.uuidString ?? "UNKNOWN"
+        #else
+        return "SIMULATOR"
+        #endif
+    }
+
+    private static func fetchLastHash(from context: ModelContext) -> String {
+        var descriptor = FetchDescriptor<AuditLogEntry>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        let results = (try? context.fetch(descriptor)) ?? []
+        return results.first?.hash ?? "GENESIS"
+    }
+}
