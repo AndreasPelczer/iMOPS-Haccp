@@ -8,9 +8,10 @@
 //
 //  "Code lügt nicht. Code ZEIGT."
 //
-//  ARCHITEKTUR-REGEL:
-//  Kernel = Hot Path, Audit = Side Channel.
-//  Audit läuft auf eigener Queue, blockiert den Kernel NIE.
+//  ARCHITEKTUR-REGELN:
+//  1. Kernel = Hot Path, Audit = Side Channel (kein Deadlock)
+//  2. ModelContainer = thread-safe, ModelContext = NICHT thread-safe
+//  3. Jede Operation bekommt einen frischen ModelContext (SwiftData-Physik)
 //
 
 import Foundation
@@ -22,19 +23,19 @@ import UIKit
 
 /// HACCP-compliant audit trail with blockchain-style hash chaining.
 /// Runs on its own serial queue – never blocks the kernel.
+/// Each operation creates a fresh ModelContext (SwiftData thread-affinity rule).
 @available(iOS 17.0, *)
 final class AuditTrail {
     private let modelContainer: ModelContainer
     private let auditQueue = DispatchQueue(label: "imops.audit.queue", qos: .utility)
-    private var modelContext: ModelContext!
     private var lastHash: String = "GENESIS"
 
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
-        // ModelContext auf der auditQueue erzeugen (Thread-Ownership)
+        // Letzten Hash aus der Datenbank laden
         auditQueue.sync {
-            self.modelContext = ModelContext(modelContainer)
-            self.lastHash = Self.fetchLastHash(from: self.modelContext)
+            let context = ModelContext(modelContainer)
+            self.lastHash = Self.fetchLastHash(from: context)
         }
     }
 
@@ -45,6 +46,7 @@ final class AuditTrail {
     /// Hash chain ordering is preserved by the serial queue.
     func log(action: String, key: String? = nil, userId: String, details: String? = nil) {
         auditQueue.async { [self] in
+            let context = ModelContext(modelContainer)
             let now = Date()
             let newHash = computeHash(
                 previousHash: lastHash,
@@ -64,10 +66,10 @@ final class AuditTrail {
                 hash: newHash
             )
 
-            modelContext.insert(entry)
+            context.insert(entry)
             lastHash = entry.hash
 
-            try? modelContext.save()
+            try? context.save()
         }
     }
 
@@ -77,7 +79,8 @@ final class AuditTrail {
     /// Returns true if no tampering is detected.
     func verifyIntegrity() -> Bool {
         auditQueue.sync {
-            let entries = fetchAllEntriesInternal()
+            let context = ModelContext(modelContainer)
+            let entries = fetchAllEntriesInternal(context: context)
             var expectedHash = "GENESIS"
 
             for entry in entries {
@@ -103,13 +106,15 @@ final class AuditTrail {
     /// Fetch all audit log entries ordered by timestamp.
     func fetchAllEntries() -> [AuditLogEntry] {
         auditQueue.sync {
-            fetchAllEntriesInternal()
+            let context = ModelContext(modelContainer)
+            return fetchAllEntriesInternal(context: context)
         }
     }
 
     /// Fetch entries for a specific calendar day.
     func fetchEntries(for date: Date) -> [AuditLogEntry] {
         auditQueue.sync {
+            let context = ModelContext(modelContainer)
             let calendar = Calendar.current
             let startOfDay = calendar.startOfDay(for: date)
             let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
@@ -121,26 +126,27 @@ final class AuditTrail {
                 predicate: predicate,
                 sortBy: [SortDescriptor(\.timestamp, order: .forward)]
             )
-            return (try? modelContext.fetch(descriptor)) ?? []
+            return (try? context.fetch(descriptor)) ?? []
         }
     }
 
     /// Total number of audit entries.
     var entryCount: Int {
         auditQueue.sync {
+            let context = ModelContext(modelContainer)
             let descriptor = FetchDescriptor<AuditLogEntry>()
-            return (try? modelContext.fetchCount(descriptor)) ?? 0
+            return (try? context.fetchCount(descriptor)) ?? 0
         }
     }
 
     // MARK: - Private
 
     /// Internal fetch – must be called ON auditQueue.
-    private func fetchAllEntriesInternal() -> [AuditLogEntry] {
+    private func fetchAllEntriesInternal(context: ModelContext) -> [AuditLogEntry] {
         let descriptor = FetchDescriptor<AuditLogEntry>(
             sortBy: [SortDescriptor(\.timestamp, order: .forward)]
         )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        return (try? context.fetch(descriptor)) ?? []
     }
 
     private func computeHash(previousHash: String, action: String, key: String?, userId: String, timestamp: Date) -> String {

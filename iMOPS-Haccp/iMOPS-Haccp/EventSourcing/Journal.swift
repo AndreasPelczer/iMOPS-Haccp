@@ -6,9 +6,10 @@
 //  Append-only by design: events are never modified or deleted.
 //  "Journal append asynchron (aber garantiert)."
 //
-//  ARCHITEKTUR-REGEL:
-//  Kernel = Hot Path, Journal = Side Channel.
-//  Journal läuft auf eigener Queue, blockiert den Kernel NIE.
+//  ARCHITEKTUR-REGELN:
+//  1. Kernel = Hot Path, Journal = Side Channel (kein Deadlock)
+//  2. ModelContainer = thread-safe, ModelContext = NICHT thread-safe
+//  3. Jede Operation bekommt einen frischen ModelContext (SwiftData-Physik)
 //
 
 import Foundation
@@ -19,19 +20,19 @@ import UIKit
 
 /// The persistent event journal for iMOPS.
 /// Appends events to SwiftData on its own serial queue – never blocks the kernel.
+/// Each operation creates a fresh ModelContext (SwiftData thread-affinity rule).
 @available(iOS 17.0, *)
 final class Journal {
     private let modelContainer: ModelContainer
     private let journalQueue = DispatchQueue(label: "imops.journal.queue", qos: .utility)
-    private var modelContext: ModelContext!
     private var sequenceCounter: Int = 0
 
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
-        // ModelContext auf der journalQueue erzeugen (Thread-Ownership)
+        // Sequence-Counter aus der Datenbank wiederherstellen
         journalQueue.sync {
-            self.modelContext = ModelContext(modelContainer)
-            self.sequenceCounter = Self.fetchMaxSequenceNumber(from: self.modelContext) + 1
+            let context = ModelContext(modelContainer)
+            self.sequenceCounter = Self.fetchMaxSequenceNumber(from: context) + 1
         }
     }
 
@@ -42,6 +43,7 @@ final class Journal {
     /// Sequence ordering is preserved by the serial queue.
     func append(type: iMOPSEventType, path: String, value: String? = nil, userId: String = "SYSTEM") {
         journalQueue.async { [self] in
+            let context = ModelContext(modelContainer)
             let event = iMOPSEvent(
                 type: type,
                 path: path,
@@ -51,11 +53,11 @@ final class Journal {
                 sequenceNumber: sequenceCounter
             )
 
-            modelContext.insert(event)
+            context.insert(event)
             sequenceCounter += 1
 
             // Persist immediately (Windhund-Prinzip: schnell, aber garantiert)
-            try? modelContext.save()
+            try? context.save()
         }
     }
 
@@ -64,16 +66,18 @@ final class Journal {
     /// Fetch all events ordered by sequence number (for full replay).
     func fetchAll() -> [iMOPSEvent] {
         journalQueue.sync {
+            let context = ModelContext(modelContainer)
             let descriptor = FetchDescriptor<iMOPSEvent>(
                 sortBy: [SortDescriptor(\.sequenceNumber, order: .forward)]
             )
-            return (try? modelContext.fetch(descriptor)) ?? []
+            return (try? context.fetch(descriptor)) ?? []
         }
     }
 
     /// Fetch events within a date range.
     func fetch(from startDate: Date, to endDate: Date) -> [iMOPSEvent] {
         journalQueue.sync {
+            let context = ModelContext(modelContainer)
             let predicate = #Predicate<iMOPSEvent> { event in
                 event.ts >= startDate && event.ts <= endDate
             }
@@ -81,15 +85,16 @@ final class Journal {
                 predicate: predicate,
                 sortBy: [SortDescriptor(\.sequenceNumber, order: .forward)]
             )
-            return (try? modelContext.fetch(descriptor)) ?? []
+            return (try? context.fetch(descriptor)) ?? []
         }
     }
 
     /// Get the total event count.
     var eventCount: Int {
         journalQueue.sync {
+            let context = ModelContext(modelContainer)
             let descriptor = FetchDescriptor<iMOPSEvent>()
-            return (try? modelContext.fetchCount(descriptor)) ?? 0
+            return (try? context.fetchCount(descriptor)) ?? 0
         }
     }
 
