@@ -23,10 +23,17 @@ struct HACCPDashboardView: View {
     @State private var auditEntries: [AuditLogEntry] = []
     @State private var eventCount: Int = 0
     @State private var auditCount: Int = 0
+    @State private var auditStartDate: Date?
 
     private static let verifyTimeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss"
+        return f
+    }()
+
+    private static let fullDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "dd.MM.yyyy HH:mm"
         return f
     }()
 
@@ -59,31 +66,49 @@ struct HACCPDashboardView: View {
     // MARK: - Header
 
     private var dashboardHeader: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("HACCP COMPLIANCE")
-                    .font(.system(size: 16, weight: .black, design: .monospaced))
-                    .foregroundColor(.white)
-                Text("EU VO 852/2004 // REVISIONSSICHER")
-                    .font(.system(size: 8, design: .monospaced))
-                    .foregroundColor(.green)
-            }
-            Spacer()
-
-            if let result = verificationResult {
-                HStack(spacing: 4) {
-                    Image(systemName: result.isValid ? "checkmark.shield.fill" : "xmark.shield.fill")
-                    Text(result.isValid ? "VERIFIED" : "VIOLATION")
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("HACCP COMPLIANCE")
+                        .font(.system(size: 16, weight: .black, design: .monospaced))
+                        .foregroundColor(.white)
+                    Text("EU VO 852/2004 // REVISIONSSICHER")
+                        .font(.system(size: 8, design: .monospaced))
+                        .foregroundColor(.green)
                 }
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundColor(result.isValid ? .green : .red)
-            } else {
-                Text("UNVERIFIED")
+                Spacer()
+
+                if let result = verificationResult {
+                    HStack(spacing: 4) {
+                        Image(systemName: result.isValid ? "checkmark.shield.fill" : "xmark.shield.fill")
+                        Text(result.isValid ? "GEPRÜFT" : "VERLETZUNG")
+                    }
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundColor(.gray)
+                    .foregroundColor(result.isValid ? .green : .red)
+                } else {
+                    Text("UNGEPRÜFT")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 12)
+            .padding(.bottom, 6)
+
+            // Prio 1: "Audit vollständig seit..." — DER größte Hebel beim Prüfer
+            if let startDate = auditStartDate {
+                HStack(spacing: 4) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 9))
+                    Text("Audit-Trail vollständig seit: \(Self.fullDateFormatter.string(from: startDate))")
+                    Spacer()
+                }
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(.green.opacity(0.8))
+                .padding(.horizontal)
+                .padding(.bottom, 10)
             }
         }
-        .padding()
         .background(Color.green.opacity(0.1))
     }
 
@@ -138,6 +163,12 @@ struct HACCPDashboardView: View {
                 .font(.system(size: 7, weight: .medium, design: .monospaced))
                 .foregroundColor(.gray)
             }
+
+            // Prio 5: Disclaimer – Angriffsfläche wegnehmen
+            Text("Interne Betriebskennzahl zur Kapazitätsplanung – kein rechtlicher Grenzwert")
+                .font(.system(size: 8, design: .monospaced))
+                .foregroundColor(.white.opacity(0.25))
+                .italic()
         }
     }
 
@@ -150,24 +181,27 @@ struct HACCPDashboardView: View {
                 HACCPSectionHeader(title: "INTEGRITÄTS-PRÜFUNG")
 
                 VStack(alignment: .leading, spacing: 6) {
-                    // Main result
+                    // Official compliance result
                     HStack {
                         Image(systemName: result.isValid ? "checkmark.circle.fill" : "xmark.circle.fill")
                             .foregroundColor(result.isValid ? .green : .red)
-                        Text(result.isValid ? "ALLE PRÜFUNGEN BESTANDEN" : "INTEGRITÄTSVERLETZUNG")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        Text(result.isValid
+                             ? "Dokumentation vollständig und konsistent"
+                             : "Integritätsverletzung erkannt")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .foregroundColor(result.isValid ? .green : .red)
                     }
 
                     Divider().background(Color.white.opacity(0.1))
 
-                    // Detail rows
-                    verifyCheckRow(label: "Audit-Chain (SHA-256)", passed: result.auditChainValid)
-                    verifyCheckRow(label: "Journal-Replay", passed: result.journalConsistent)
-                    verifyDetailRow(label: "Events geprüft", value: "\(result.eventCount)")
-                    verifyDetailRow(label: "Audit-Einträge", value: "\(result.auditEntryCount)")
+                    // Prüfer-taugliche Formulierungen
+                    verifyCheckRow(label: "Audit-Trail vollständig", passed: result.auditChainValid)
+                    verifyCheckRow(label: "Keine Manipulation erkannt", passed: result.auditChainValid)
+                    verifyCheckRow(label: "Dokumentation konsistent", passed: result.journalConsistent)
+                    verifyDetailRow(label: "Geprüfte Events", value: "\(result.eventCount)")
+                    verifyDetailRow(label: "Geprüfte Audit-Einträge", value: "\(result.auditEntryCount)")
 
-                    verifyDetailRow(label: "Geprüft um", value: Self.verifyTimeFormatter.string(from: result.timestamp))
+                    verifyDetailRow(label: "Prüfzeitpunkt", value: Self.verifyTimeFormatter.string(from: result.timestamp))
                 }
                 .padding(12)
                 .background((result.isValid ? Color.green : Color.red).opacity(0.05))
@@ -257,9 +291,9 @@ struct HACCPDashboardView: View {
             Button(action: { verifyIntegrity() }) {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.shield")
-                    Text(isVerifying ? "PRÜFE..." : "VERIFY")
+                    Text(isVerifying ? "PRÜFE..." : "INTEGRITÄTSPRÜFUNG")
                 }
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
                 .padding()
                 .frame(maxWidth: .infinity)
                 .background(Color.green.opacity(0.15))
@@ -282,6 +316,7 @@ struct HACCPDashboardView: View {
         eventCount = brain.journal?.eventCount ?? 0
         auditCount = brain.auditTrail?.entryCount ?? 0
         auditEntries = brain.auditTrail?.fetchAllEntries() ?? []
+        auditStartDate = brain.auditTrail?.firstEntryDate
     }
 
     private func verifyIntegrity() {
@@ -414,14 +449,19 @@ struct AuditLogRow: View {
         return f
     }()
 
+    /// "SYSTEM" → "SYSTEM (auto)" für den Prüfer
+    private var displayUserId: String {
+        entry.userId == "SYSTEM" ? "SYS auto" : entry.userId
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             Text(Self.timeFormatter.string(from: entry.timestamp))
                 .foregroundColor(.gray)
                 .frame(width: 52, alignment: .leading)
 
-            Text(entry.userId)
-                .foregroundColor(.cyan)
+            Text(displayUserId)
+                .foregroundColor(entry.userId == "SYSTEM" ? .gray : .cyan)
                 .frame(width: 52, alignment: .leading)
 
             Text(entry.action)

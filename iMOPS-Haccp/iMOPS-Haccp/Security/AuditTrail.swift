@@ -139,6 +139,19 @@ final class AuditTrail {
         }
     }
 
+    /// Timestamp of the very first audit entry (= "Audit vollständig seit").
+    var firstEntryDate: Date? {
+        auditQueue.sync {
+            let context = ModelContext(modelContainer)
+            var descriptor = FetchDescriptor<AuditLogEntry>(
+                sortBy: [SortDescriptor(\.timestamp, order: .forward)]
+            )
+            descriptor.fetchLimit = 1
+            let results = (try? context.fetch(descriptor)) ?? []
+            return results.first?.timestamp
+        }
+    }
+
     // MARK: - Private
 
     /// Internal fetch – must be called ON auditQueue.
