@@ -127,6 +127,20 @@ struct TaskRow: View {
                         .cornerRadius(4)
                 }
 
+                // --- HACCP-REFERENZ (Claim B) ---
+                if let haccpRef: String = iMOPS.GET(.task(id, "HACCP_REF")) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.shield.fill")
+                            .font(.system(size: 12))
+                        Text(haccpRef)
+                            .font(.system(size: 11, design: .monospaced))
+                    }
+                    .foregroundColor(.green)
+                    .padding(8)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(4)
+                }
+
                 // --- INJEKTION: ChefIQ WISSENWARE ---
                 // Hier ziehen wir die klinischen Daten, falls sie im Kernel liegen
                 if let medical: String = iMOPS.GET(.task(id, "PINS.MEDICAL")) {

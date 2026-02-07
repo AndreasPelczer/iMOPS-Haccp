@@ -16,19 +16,25 @@ import Foundation
 struct TaskRepository {
 
     /// Erzeugt einen neuen Arbeits-Bon mit ChefIQ-Vorbereitung
-    static func createProductionTask(id: String, title: String, weight: Int = 10) {
+    /// haccpRef: Optionale HACCP-Referenz (z.B. "CCP-1: Kerntemperatur >= 72°C")
+    static func createProductionTask(id: String, title: String, weight: Int = 10, haccpRef: String? = nil) {
         let timestamp = Date().timeIntervalSince1970
-        
+
         // 1. Zuerst die Metadaten (Gewicht ist wichtig für die Matrix!)
         iMOPS.SET(.task(id, "TITLE"), title)
         iMOPS.SET(.task(id, "CREATED"), timestamp)
         iMOPS.SET(.task(id, "WEIGHT"), weight) // <--- Muss vor dem Status kommen!
-        
+
+        // Claim B: HACCP-Referenz (CCP/SOP/Grenzwert)
+        if let ref = haccpRef {
+            iMOPS.SET(.task(id, "HACCP_REF"), ref)
+        }
+
         // 2. Jetzt erst den Status setzen - das triggert die Matrix-Berechnung im Kernel
         iMOPS.SET(.task(id, "STATUS"), "OPEN")
 
         print("iMOPS-GRID: Neuer Task injiziert: \(title) (Weight: \(weight))")
-    
+
     }
     // Im TaskRepository.swift
     private var lastLocation: String = ""
@@ -64,6 +70,7 @@ struct TaskRepository {
         // NEU: Wir retten die ChefIQ-Pins vor dem Löschen ins Archiv
         let medical: String = iMOPS.GET(.task(id, "PINS.MEDICAL")) ?? "N/A"
         let sop: String = iMOPS.GET(.task(id, "PINS.SOP")) ?? "N/A"
+        let haccpRef: String = iMOPS.GET(.task(id, "HACCP_REF")) ?? ""
 
         // 2) HACCP Tresor versiegeln (^ARCHIVE)
         // Diese Daten sind ab jetzt unantastbar für den operativen Betrieb.
@@ -72,6 +79,9 @@ struct TaskRepository {
         iMOPS.SET(.archive(id, "USER"), user)
         iMOPS.SET(.archive(id, "MEDICAL_SNAPSHOT"), medical)
         iMOPS.SET(.archive(id, "SOP_REFERENCE"), sop)
+        if !haccpRef.isEmpty {
+            iMOPS.SET(.archive(id, "HACCP_REF"), haccpRef)
+        }
 
         // 3) Den aktiven Arbeitsplatz (Subtree) löschen
         // iMOPS-Prinzip: Sauberer Tisch in Nanosekunden.

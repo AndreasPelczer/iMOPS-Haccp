@@ -71,9 +71,10 @@ final class TheBrain {
 
     /// Configure TheBrain with persistence layer.
     /// Called once during app boot after SwiftData is initialized.
-    func configure(modelContext: ModelContext) {
-        self.journal = Journal(modelContext: modelContext)
-        self.auditTrail = AuditTrail(modelContext: modelContext)
+    /// Journal + AuditTrail get their own queues + ModelContexts (kein Deadlock).
+    func configure(modelContainer: ModelContainer) {
+        self.journal = Journal(modelContainer: modelContainer)
+        self.auditTrail = AuditTrail(modelContainer: modelContainer)
         print("iMOPS-KERNEL: Persistence layer configured. Journal + AuditTrail active.")
     }
 
@@ -400,6 +401,8 @@ final class TheBrain {
         // 3) ChefIQ Zusatz-Infos (HACCP / Medizinische Pins)
         set("^TASK.001.PINS.MEDICAL", "BE: 0.1 | kcal: 145 | ALLERGEN: D")
         set("^TASK.001.PINS.SOP", "Wässerung: 12h bei < 4°C. Wasser 2x wechseln.")
+        // Claim B: HACCP-Referenz (CCP/SOP/Grenzwert) für Prüfer-Dokumentation
+        set("^TASK.001.HACCP_REF", "CCP-2: Lagertemperatur < 4°C während Wässerung")
 
         // 4) System-Status Zündung
         set("^SYS.STATUS", "KERNEL ONLINE")

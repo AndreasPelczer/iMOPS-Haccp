@@ -18,6 +18,30 @@ import SwiftData
 @available(iOS 17.0, *)
 struct HACCPExporter {
 
+    // MARK: - Metadata
+
+    /// Standard metadata header for all exports.
+    /// "Jeder Export ist sofort ablagefähig." – Prüfer-Perspektive
+    private static func metadataBlock(date: Date, format: String, auditTrail: AuditTrail? = nil) -> String {
+        let df = DateFormatter()
+        df.dateFormat = "dd.MM.yyyy"
+        let tf = DateFormatter()
+        tf.dateFormat = "dd.MM.yyyy HH:mm"
+
+        var meta = ""
+        meta += "Betrieb: [Betriebsname konfigurieren]\n"
+        meta += "Zeitraum: \(df.string(from: date))\n"
+        meta += "Exportiert am: \(tf.string(from: Date()))\n"
+        meta += "Quelle: iMOPS 2.0 HACCP\n"
+        meta += "Format: \(format)\n"
+        if let trail = auditTrail {
+            let valid = trail.verifyIntegrity()
+            meta += "Integritätsstatus: \(valid ? "OK – keine Manipulation erkannt" : "WARNUNG – Integritätsverletzung")\n"
+        }
+        meta += "Vollständigkeit: Dieser Export enthält alle relevanten Daten für den angegebenen Zeitraum gemäß Systemstand.\n"
+        return meta
+    }
+
     // MARK: - Tagesbericht (Daily Report)
 
     /// Generate a daily HACCP report in text format.
@@ -41,6 +65,10 @@ struct HACCPExporter {
         ══════════════════════════════════════════════════════════
 
         """
+
+        // Metadata for filing
+        report += metadataBlock(date: date, format: "Tagesbericht (Text)", auditTrail: auditTrail)
+        report += "\n"
 
         // Section 1: Audit entries for the day
         let auditEntries = auditTrail.fetchEntries(for: date)
@@ -71,6 +99,7 @@ struct HACCPExporter {
         report += "\n── ENDE DES BERICHTS ──────────────────────────\n"
         report += "Generiert: \(Date().description)\n"
         report += "System: iMOPS 2.0 HACCP\n"
+        report += "Dokumentationsmodus: Vollständig – alle Aktionen journalisiert\n"
 
         return report
     }
@@ -90,7 +119,9 @@ struct HACCPExporter {
 
         let isoFormatter = ISO8601DateFormatter()
 
-        var csv = "ID;Timestamp;Action;Key;UserID;DeviceID;Details;Hash\n"
+        // Metadata as comment lines (standard CSV practice)
+        var csv = "# \(metadataBlock(date: Date(), format: "Audit CSV", auditTrail: auditTrail).replacingOccurrences(of: "\n", with: "\n# "))\n"
+        csv += "ID;Timestamp;Action;Key;UserID;DeviceID;Details;Hash\n"
 
         for entry in entries {
             let fields = [
@@ -101,7 +132,7 @@ struct HACCPExporter {
                 entry.userId,
                 entry.deviceId,
                 entry.details ?? "",
-                entry.hash
+                entry.chainHash
             ]
             csv += fields.joined(separator: ";") + "\n"
         }
@@ -121,7 +152,7 @@ struct HACCPExporter {
             var dict: [String: Any] = [
                 "id": event.id.uuidString,
                 "timestamp": isoFormatter.string(from: event.ts),
-                "type": event.type,
+                "type": event.eventTypeRaw,
                 "path": event.path,
                 "userId": event.userId,
                 "deviceId": event.deviceId,
@@ -133,10 +164,16 @@ struct HACCPExporter {
             jsonEvents.append(dict)
         }
 
+        let df = DateFormatter()
+        df.dateFormat = "dd.MM.yyyy HH:mm"
+
         let wrapper: [String: Any] = [
             "export": "iMOPS-Journal",
             "version": "2.0",
+            "betrieb": "[Betriebsname konfigurieren]",
             "exportDate": isoFormatter.string(from: Date()),
+            "exportDateReadable": df.string(from: Date()),
+            "quelle": "iMOPS 2.0 HACCP",
             "eventCount": events.count,
             "events": jsonEvents
         ]

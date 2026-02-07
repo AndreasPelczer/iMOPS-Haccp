@@ -47,6 +47,9 @@ struct RootTerminalView: View {
             case "COMMANDER":
                 CommanderView()
 
+            case "HACCP":
+                HACCPDashboardView()
+
             default:
                 VStack(spacing: 12) {
                     Text("KERNEL ERROR")
