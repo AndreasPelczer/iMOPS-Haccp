@@ -21,7 +21,7 @@ class HACCPRecord {
     var createdAt: Date
     var createdBy: String         // Mitarbeiter-ID
     var signature: String?        // Qualifizierter Zeitstempel (Phase 2)
-    var isArchived: Bool
+    var isArchived: String        // "true"/"false" – Bool vermieden (CoreData NSNumber-Konflikt)
 
     // Für Audit-Trail / Rückverfolgbarkeit
     var previousValue: String?
@@ -32,7 +32,7 @@ class HACCPRecord {
          value: String,
          createdBy: String,
          signature: String? = nil,
-         isArchived: Bool = false,
+         isArchived: String = "false",
          previousValue: String? = nil,
          changeReason: String? = nil) {
         self.id = id

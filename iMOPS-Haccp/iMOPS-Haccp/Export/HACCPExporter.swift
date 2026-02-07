@@ -121,7 +121,7 @@ struct HACCPExporter {
             var dict: [String: Any] = [
                 "id": event.id.uuidString,
                 "timestamp": isoFormatter.string(from: event.ts),
-                "type": event.type,
+                "type": event.eventTypeRaw,
                 "path": event.path,
                 "userId": event.userId,
                 "deviceId": event.deviceId,

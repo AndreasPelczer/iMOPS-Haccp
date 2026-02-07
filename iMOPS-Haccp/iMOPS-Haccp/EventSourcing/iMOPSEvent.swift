@@ -25,7 +25,8 @@ enum iMOPSEventType: String, Codable {
 class iMOPSEvent {
     var id: UUID
     var ts: Date
-    var type: String              // iMOPSEventType raw value (SwiftData needs primitive)
+    var eventTypeRaw: String      // iMOPSEventType raw value (SwiftData needs primitive)
+                                  // "type" ist reserviert (CoreData KVC) → eventTypeRaw
     var path: String
     var value: String?            // ValueCoder-encoded typed value
     var userId: String
@@ -42,7 +43,7 @@ class iMOPSEvent {
          sequenceNumber: Int = 0) {
         self.id = id
         self.ts = ts
-        self.type = type.rawValue
+        self.eventTypeRaw = type.rawValue
         self.path = path
         self.value = value
         self.userId = userId
@@ -52,6 +53,6 @@ class iMOPSEvent {
 
     /// Typed accessor for event type
     var eventType: iMOPSEventType {
-        iMOPSEventType(rawValue: type) ?? .set
+        iMOPSEventType(rawValue: eventTypeRaw) ?? .set
     }
 }
