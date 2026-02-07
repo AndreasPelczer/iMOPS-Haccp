@@ -24,23 +24,26 @@ struct iMOPS_OS_COREApp: App {
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
-        // Schema-Migration: Wenn der alte Store inkompatibel ist (z.B. hash→chainHash,
-        // type→eventTypeRaw), löschen wir ihn und starten sauber.
-        // Audit-Trail + Journal werden beim Seed neu aufgebaut.
+        // Schema-Versionierung: Bei Inkompatibilität Store VORHER löschen.
+        // NSExceptions (ObjC) können von Swift try/catch NICHT gefangen werden,
+        // deshalb dürfen wir einen inkompatiblen Store nie öffnen.
+        // Version 2: hash→chainHash, type→eventTypeRaw, isArchived Bool→String, HACCP_REF
+        let currentSchemaVersion = 2
+        let storedVersion = UserDefaults.standard.integer(forKey: "imops.schema.version")
+
+        if storedVersion != currentSchemaVersion {
+            print("iMOPS-KERNEL: Schema-Update \(storedVersion) → \(currentSchemaVersion). Lösche alten Store...")
+            Self.deleteStoreFiles()
+            UserDefaults.standard.set(currentSchemaVersion, forKey: "imops.schema.version")
+        }
+
         do {
-            let container = try ModelContainer(for: schema, configurations: [config])
-            // Probe-Fetch: Prüfe ob der Store tatsächlich lesbar ist
-            let testContext = ModelContext(container)
-            let probe = FetchDescriptor<AuditLogEntry>(sortBy: [SortDescriptor(\.timestamp)])
-            _ = try testContext.fetch(probe)
-            modelContainer = container
+            modelContainer = try ModelContainer(for: schema, configurations: [config])
         } catch {
-            print("iMOPS-KERNEL: Store inkompatibel (\(error)). Lösche alten Store...")
-            // Store-Dateien löschen
+            // Letzter Fallback: Store nochmal löschen und neu versuchen
             Self.deleteStoreFiles()
             do {
                 modelContainer = try ModelContainer(for: schema, configurations: [config])
-                print("iMOPS-KERNEL: Neuer Store erstellt.")
             } catch {
                 fatalError("iMOPS-KERNEL: SwiftData Initialisierung fehlgeschlagen: \(error)")
             }
