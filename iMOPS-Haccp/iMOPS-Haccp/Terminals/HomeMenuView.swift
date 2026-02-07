@@ -57,7 +57,14 @@ struct HomeMenuView: View {
                 }) {
                     RebelButton(title: "COMMANDER", icon: "terminal.fill", color: .blue)
                 }
-                
+
+                // HACCP COMPLIANCE CENTER
+                Button(action: {
+                    iMOPS.GOTO("HACCP")
+                }) {
+                    RebelButton(title: "HACCP", icon: "checkmark.shield.fill", color: .green)
+                }
+
                 // STRESS-SIMULATOR (Versteckter Knopf für den Commander)
                 Button(action: {
                     brain.simulateRushHour()
