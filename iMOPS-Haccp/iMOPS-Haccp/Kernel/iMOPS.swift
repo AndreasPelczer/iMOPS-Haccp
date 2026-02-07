@@ -35,14 +35,17 @@ struct iMOPS_OS_COREApp: App {
         brain.configure(modelContainer: modelContainer)
 
         // 3) Boot-Strategie: Journal vorhanden → Rebuild, sonst → Seed
+        //    Claim C: Jeder Systemstart wird im Audit-Trail dokumentiert (Reset-Transparenz)
         if let journal = brain.journal, journal.eventCount > 0 {
             // Crash-Recovery: RAM aus Journal rekonstruieren
             let events = journal.fetchAll()
             brain.rebuildFromJournal(events)
+            brain.auditTrail?.log(action: "BOOT", userId: "SYSTEM", details: "REBUILD aus \(events.count) Journal-Events")
             print("iMOPS-KERNEL: State rebuilt from \(events.count) events.")
         } else {
             // Erststart: Demo-Daten laden
             brain.seed()
+            brain.auditTrail?.log(action: "BOOT", userId: "SYSTEM", details: "INIT – Erststart mit Seed-Daten")
         }
     }
 

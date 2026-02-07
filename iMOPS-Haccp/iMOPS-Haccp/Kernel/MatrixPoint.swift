@@ -401,6 +401,8 @@ final class TheBrain {
         // 3) ChefIQ Zusatz-Infos (HACCP / Medizinische Pins)
         set("^TASK.001.PINS.MEDICAL", "BE: 0.1 | kcal: 145 | ALLERGEN: D")
         set("^TASK.001.PINS.SOP", "Wässerung: 12h bei < 4°C. Wasser 2x wechseln.")
+        // Claim B: HACCP-Referenz (CCP/SOP/Grenzwert) für Prüfer-Dokumentation
+        set("^TASK.001.HACCP_REF", "CCP-2: Lagertemperatur < 4°C während Wässerung")
 
         // 4) System-Status Zündung
         set("^SYS.STATUS", "KERNEL ONLINE")

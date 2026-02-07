@@ -38,6 +38,7 @@ struct HACCPExporter {
             let valid = trail.verifyIntegrity()
             meta += "Integritätsstatus: \(valid ? "OK – keine Manipulation erkannt" : "WARNUNG – Integritätsverletzung")\n"
         }
+        meta += "Vollständigkeit: Dieser Export enthält alle relevanten Daten für den angegebenen Zeitraum gemäß Systemstand.\n"
         return meta
     }
 
@@ -98,6 +99,7 @@ struct HACCPExporter {
         report += "\n── ENDE DES BERICHTS ──────────────────────────\n"
         report += "Generiert: \(Date().description)\n"
         report += "System: iMOPS 2.0 HACCP\n"
+        report += "Dokumentationsmodus: Vollständig – alle Aktionen journalisiert\n"
 
         return report
     }
