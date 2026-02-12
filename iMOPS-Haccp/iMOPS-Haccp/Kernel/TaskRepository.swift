@@ -33,7 +33,9 @@ struct TaskRepository {
         // 2. Jetzt erst den Status setzen - das triggert die Matrix-Berechnung im Kernel
         iMOPS.SET(.task(id, "STATUS"), "OPEN")
 
+        #if DEBUG
         print("iMOPS-GRID: Neuer Task injiziert: \(title) (Weight: \(weight))")
+        #endif
 
     }
     // Im TaskRepository.swift
@@ -53,7 +55,9 @@ struct TaskRepository {
         
         let endTime = DispatchTime.now()
         let nanoTime = endTime.uptimeNanoseconds - startTime.uptimeNanoseconds
+        #if DEBUG
         print("iMOPS-CORE-SPEED: ^NAV.LOCATION gesetzt in \(nanoTime) ns (Optimiert)")
+        #endif
     }
     /// Task quittieren = HACCP Tresor / Revisionssicheres Archiv
     /// Hier ziehen wir die ChefIQ-Werte mit in die Ewigkeit.
@@ -87,12 +91,13 @@ struct TaskRepository {
         // iMOPS-Prinzip: Sauberer Tisch in Nanosekunden.
         iMOPS.KILLTREE(.task(id, ""))
 
+        #if DEBUG
         print("iMOPS-HACCP: Task \(id) inklusive ChefIQ-Daten versiegelt um \(timeString). ;=)")
+        #endif
 
-        // 4) Automatische Rückkehr zum Auswahl-Bildschirm (Navigations-Logik)
-        iMOPS.GOTO("BRIGADE_SELECT")
+        // 4) Archive-Trigger aktualisieren (UI bleibt auf Production)
         DispatchQueue.main.async {
-                TheBrain.shared.archiveUpdateTrigger += 1
-            }
+            TheBrain.shared.archiveUpdateTrigger += 1
+        }
     }
 }

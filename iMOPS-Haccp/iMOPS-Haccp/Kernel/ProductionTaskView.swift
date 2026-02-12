@@ -15,6 +15,7 @@
 //  - Spiegelt ChefIQ-Wissen (Nährwerte/Allergene)
 //  - Integriert Thermodynamik-Leitsätze als System-Anker
 //  - NEU: Reaktive Belastungs-Visualisierung (Mensch-Meier-Schutz)
+//  - FIX: Dynamische Task-Auflistung statt Hardcoding auf Task 001
 //
 
 import SwiftUI
@@ -22,26 +23,26 @@ import SwiftUI
 struct ProductionTaskView: View {
     let userID: String
     @State private var brain = TheBrain.shared
+    @State private var showNewTask = false
+    @State private var newTaskTitle = ""
 
     var body: some View {
         VStack(spacing: 20) {
 
             // --- HEADER: STATUS & IDENTITÄT ---
-            // Im Header-HStack der ProductionTaskView
             HStack {
                 Text("POSTEN: \(userID)")
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundColor(.green)
+                    .accessibilityLabel("Aktiver Posten: \(userID)")
 
                 Spacer()
 
-                // Die Live-Anzeige der Pelczer-Matrix
-                // Bezug: "Die Suppe lügt nicht" - Das System atmet mit.
                 let score = brain.meierScore
                 Text("MEIER-SCORE: \(score)")
                     .font(.system(size: 12, weight: .black, design: .monospaced))
                     .foregroundColor(score > 70 ? .red : (score > 40 ? .orange : .green))
-            
+                    .accessibilityLabel("Belastungs-Score: \(score) von 100")
             }
             .padding()
             .background(Color.white.opacity(0.05))
@@ -55,38 +56,99 @@ struct ProductionTaskView: View {
             // --- TASK-LISTE: DER PULS DER KÜCHE ---
             ScrollView {
                 VStack(spacing: 16) {
-                    // Wir suchen nach Task 001 (unserer Matjes-Demo) im Kernel
-                    if let taskTitle: String = iMOPS.GET(.task("001", "TITLE")) {
-                        TaskRow(id: "001", title: taskTitle)
-                    } else {
-                        // Wenn der Kernel leer ist, wartet das System passiv
-                        VStack(spacing: 20) {
-                            ProgressView()
-                                .tint(.green)
-                            Text("WARTEN AUF INJEKTION...")
-                                .font(.system(size: 14, design: .monospaced))
+                    // Dynamisch alle offenen Tasks aus dem Kernel laden
+                    let _ = brain.meierScore // Observation-Trigger
+                    let openIDs = brain.getOpenTaskIDs()
+
+                    if openIDs.isEmpty {
+                        // Leerer Zustand: Klare Botschaft statt Endlos-Spinner
+                        VStack(spacing: 16) {
+                            Image(systemName: "checkmark.circle")
+                                .font(.system(size: 40))
+                                .foregroundColor(.green.opacity(0.5))
+                            Text("KEINE OFFENEN AUFGABEN")
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
                                 .foregroundColor(.gray)
+                            Text("Alle Bons abgearbeitet.")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(.gray.opacity(0.6))
                         }
                         .padding(.top, 50)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Keine offenen Aufgaben. Alle Bons abgearbeitet.")
+                    } else {
+                        ForEach(openIDs, id: \.self) { taskID in
+                            let title: String = iMOPS.GET(.task(taskID, "TITLE")) ?? "AUFGABE \(taskID)"
+                            TaskRow(id: taskID, title: title)
+                        }
                     }
                 }
                 .padding()
             }
 
+            // --- NEUER TASK ERSTELLEN ---
+            if showNewTask {
+                HStack(spacing: 8) {
+                    TextField("Aufgabe eingeben...", text: $newTaskTitle)
+                        .font(.system(size: 14, design: .monospaced))
+                        .textFieldStyle(.plain)
+                        .padding(10)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(6)
+                        .foregroundColor(.white)
+                        .accessibilityLabel("Neue Aufgabe eingeben")
+
+                    Button("OK") {
+                        guard !newTaskTitle.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                        let id = String(format: "%03d", Int.random(in: 100...999))
+                        TaskRepository.createProductionTask(id: id, title: newTaskTitle.uppercased())
+                        newTaskTitle = ""
+                        showNewTask = false
+                    }
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundColor(.green)
+                    .padding(10)
+                    .background(Color.green.opacity(0.2))
+                    .cornerRadius(6)
+                    .accessibilityLabel("Aufgabe erstellen")
+                    .accessibilityHint("Erstellt eine neue Aufgabe mit dem eingegebenen Titel")
+                }
+                .padding(.horizontal)
+            }
+
             Spacer()
 
-            // --- EXIT: LOGOUT ---
-            Button("LOG OUT") {
-                iMOPS.GOTO("HOME") // Setzt ^NAV.LOCATION auf HOME
+            // --- FOOTER: ACTIONS ---
+            HStack(spacing: 0) {
+                Button(action: {
+                    withAnimation { showNewTask.toggle() }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: showNewTask ? "xmark" : "plus")
+                        Text(showNewTask ? "ABBRECHEN" : "NEUER BON")
+                    }
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.green.opacity(0.15))
+                    .foregroundColor(.green)
+                }
+                .accessibilityLabel(showNewTask ? "Neue Aufgabe abbrechen" : "Neue Aufgabe erstellen")
+
+                Button("LOG OUT") {
+                    iMOPS.GOTO("HOME")
+                }
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .foregroundColor(.red)
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.white.opacity(0.05))
+                .accessibilityLabel("Abmelden und zum Hauptmenü zurückkehren")
             }
-            .font(.system(size: 12, design: .monospaced))
-            .foregroundColor(.red)
-            .padding()
         }
         .background(
             ZStack {
                 Color.black.ignoresSafeArea()
-                // Mensch-Meier-Visier: Hintergrund glüht bei Stress
                 if brain.meierScore > 70 {
                     Color.red.opacity(0.05).ignoresSafeArea()
                 }
@@ -103,7 +165,6 @@ struct TaskRow: View {
 
     var body: some View {
         Button(action: {
-            // Auslösen der HACCP-Kausalkette im TaskRepository
             TaskRepository.completeTask(id: id)
         }) {
             VStack(alignment: .leading, spacing: 12) {
@@ -117,8 +178,7 @@ struct TaskRow: View {
                             .foregroundColor(.green)
                     }
                     Spacer()
-                    
-                    // Quittierungs-Button (Reaktionsebene)
+
                     Text("FERTIG")
                         .font(.system(size: 10, weight: .bold))
                         .padding(.vertical, 8)
@@ -142,7 +202,6 @@ struct TaskRow: View {
                 }
 
                 // --- INJEKTION: ChefIQ WISSENWARE ---
-                // Hier ziehen wir die klinischen Daten, falls sie im Kernel liegen
                 if let medical: String = iMOPS.GET(.task(id, "PINS.MEDICAL")) {
                     HStack(spacing: 10) {
                         Image(systemName: "pills.fill")
@@ -157,19 +216,18 @@ struct TaskRow: View {
                 }
 
                 // --- INJEKTION: THERMODYNAMIK-LEITSATZ ---
-                // Roman-Anker: Je nach Score ändert sich die Botschaft (Living Documentation)
                 Divider().background(Color.white.opacity(0.1))
-                
+
                 let quote: String = {
                     if brain.meierScore > 70 {
-                        return "„Wenn der Koch müde ist, wird das Messer schwer.“"
+                        return "„Wenn der Koch müde ist, wird das Messer schwer.""
                     } else if brain.meierScore > 40 {
-                        return "„Ein Zettel weiß nicht, dass jemand seit zehn Stunden steht.“"
+                        return "„Ein Zettel weiß nicht, dass jemand seit zehn Stunden steht.""
                     } else {
-                        return "„Stabilität entsteht durch Klarheit.“"
+                        return "„Stabilität entsteht durch Klarheit.""
                     }
                 }()
-                
+
                 Text(quote)
                     .font(.system(size: 10, weight: .medium, design: .serif))
                     .italic()
@@ -185,5 +243,8 @@ struct TaskRow: View {
                     )
             )
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Aufgabe \(title), ID \(id)")
+        .accessibilityHint("Doppeltippen zum Abschließen")
     }
 }

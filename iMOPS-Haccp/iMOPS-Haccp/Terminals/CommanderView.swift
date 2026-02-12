@@ -80,7 +80,6 @@ struct CommanderView: View {
             VStack(spacing: 0) {
                 if !killswitchEngaged {
                     Button(action: {
-                        // Roman-Bezug: "Code lügt nicht. Code ZEIGT."
                         exportText = brain.exportLog()
                         showShareSheet = true
                     }) {
@@ -94,6 +93,8 @@ struct CommanderView: View {
                         .background(Color.orange.opacity(0.2))
                         .foregroundColor(.orange)
                     }
+                    .accessibilityLabel("Bericht exportieren")
+                    .accessibilityHint("HACCP-Archiv als Text teilen")
                 }
                 
                 HStack(spacing: 0) {
@@ -103,7 +104,8 @@ struct CommanderView: View {
                         .padding()
                         .frame(maxWidth: .infinity)
                         .background(Color.white.opacity(0.05))
-                    
+                        .accessibilityLabel("Zurück zum Hauptmenü")
+
                     // KILLSWITCH (Optionaler System-Schutz)
                     Button(killswitchEngaged ? "LOCKED" : "KILLSWITCH") {
                         withAnimation { killswitchEngaged.toggle() }
@@ -113,6 +115,8 @@ struct CommanderView: View {
                     .frame(maxWidth: .infinity)
                     .background(killswitchEngaged ? Color.red : Color.red.opacity(0.1))
                     .foregroundColor(.white)
+                    .accessibilityLabel(killswitchEngaged ? "System gesperrt" : "Killswitch aktivieren")
+                    .accessibilityHint("Sperrt oder entsperrt den Export")
                 }
             }
         }
@@ -165,6 +169,8 @@ struct ArchiveRow: View {
         }
         .padding()
         .background(Color.white.opacity(0.04))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Archiv-Eintrag \(archiveTitle), abgeschlossen um \(archiveTime) von \(user)")
         // Dieser ID-Anker erzwingt, dass die UI stirbt und neu geboren wird,
         // wenn der Kernel-Score sich ändert. Absolute Synchronisation.
         .id("row-\(id)-\(brain.meierScore)")

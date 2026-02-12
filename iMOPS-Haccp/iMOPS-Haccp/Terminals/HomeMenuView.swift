@@ -50,13 +50,17 @@ struct HomeMenuView: View {
                 }) {
                     RebelButton(title: "BRIGADE", icon: "person.2.fill", color: .orange)
                 }
-                
+                .accessibilityLabel("Brigade")
+                .accessibilityHint("Mitarbeiter auswählen und zur Produktion wechseln")
+
                 // COMMANDER-ZENTRALE
                 Button(action: {
                     iMOPS.GOTO("COMMANDER")
                 }) {
                     RebelButton(title: "COMMANDER", icon: "terminal.fill", color: .blue)
                 }
+                .accessibilityLabel("Commander")
+                .accessibilityHint("Archiv und Export öffnen")
 
                 // HACCP COMPLIANCE CENTER
                 Button(action: {
@@ -64,6 +68,8 @@ struct HomeMenuView: View {
                 }) {
                     RebelButton(title: "HACCP", icon: "checkmark.shield.fill", color: .green)
                 }
+                .accessibilityLabel("HACCP Compliance")
+                .accessibilityHint("HACCP Dashboard und Integritätsprüfung öffnen")
 
                 // STRESS-SIMULATOR (Versteckter Knopf für den Commander)
                 Button(action: {
@@ -77,24 +83,28 @@ struct HomeMenuView: View {
                     .foregroundColor(.gray.opacity(0.5))
                 }
                 .padding(.top, 5)
+                .accessibilityLabel("Rush Hour simulieren")
+                .accessibilityHint("Erzeugt 10 Stress-Aufgaben zur Belastungssimulation")
 
                 // OMNI-GRID STATUS
                 HStack(spacing: 12) {
                     Image(systemName: "antenna.radiowaves.left.and.right")
                         .symbolEffect(.variableColor.iterative, isActive: true)
-                    
+
                     // Live-Anzeige der Matrix
                     Text("MATRIX-SCORE: \(brain.meierScore)")
                         .fontWeight(.bold)
-                    
+
                     Text("//")
-                    
+
                     Text("GRID: \(iMOPS.GET(.sys("STATUS")) as String? ?? "OFFLINE")")
                 }
                 .font(.system(size: 12, design: .monospaced))
                 // Ampel-Logik für den Footer-Status
                 .foregroundColor(brain.meierScore > 60 ? .red : (brain.meierScore > 30 ? .orange : .green))
                 .padding(.top, 10)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("System-Status: Matrix-Score \(brain.meierScore), Grid \(iMOPS.GET(.sys("STATUS")) as String? ?? "OFFLINE")")
             }
             .padding(.horizontal, 30)
             

@@ -344,6 +344,8 @@ struct HACCPDashboardView: View {
                             .stroke(Color.orange.opacity(0.3), lineWidth: 1)
                     )
                 }
+                .accessibilityLabel("Tag abschließen")
+                .accessibilityHint("Versiegelt die Dokumentation für den heutigen Tag")
             }
 
             Text("Revisionssicher: Nach Abschluss werden keine weiteren Änderungen für diesen Tag erwartet.")
@@ -369,6 +371,8 @@ struct HACCPDashboardView: View {
                 .foregroundColor(.green)
             }
             .disabled(isVerifying)
+            .accessibilityLabel(isVerifying ? "Integritätsprüfung läuft" : "Integritätsprüfung starten")
+            .accessibilityHint("Überprüft die SHA-256 Hash-Kette des Audit-Trails")
 
             Button("ZURÜCK") { iMOPS.GOTO("HOME") }
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -376,6 +380,7 @@ struct HACCPDashboardView: View {
                 .frame(maxWidth: .infinity)
                 .background(Color.white.opacity(0.05))
                 .foregroundColor(.white)
+                .accessibilityLabel("Zurück zum Hauptmenü")
         }
     }
 
@@ -523,6 +528,8 @@ struct StatusPill: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(color.opacity(0.2), lineWidth: 1)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 }
 

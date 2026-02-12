@@ -32,7 +32,9 @@ struct iMOPS_OS_COREApp: App {
         let storedVersion = UserDefaults.standard.integer(forKey: "imops.schema.version")
 
         if storedVersion != currentSchemaVersion {
+            #if DEBUG
             print("iMOPS-KERNEL: Schema-Update \(storedVersion) → \(currentSchemaVersion). Lösche alten Store...")
+            #endif
             Self.deleteStoreFiles()
             UserDefaults.standard.set(currentSchemaVersion, forKey: "imops.schema.version")
         }
@@ -60,7 +62,9 @@ struct iMOPS_OS_COREApp: App {
             let events = journal.fetchAll()
             brain.rebuildFromJournal(events)
             brain.auditTrail?.log(action: "BOOT", userId: "SYSTEM", details: "REBUILD aus \(events.count) Journal-Events")
+            #if DEBUG
             print("iMOPS-KERNEL: State rebuilt from \(events.count) events.")
+            #endif
         } else {
             // Erststart: Demo-Daten laden
             brain.seed()
@@ -78,7 +82,9 @@ struct iMOPS_OS_COREApp: App {
             for file in files {
                 if extensions.contains(where: { file.lastPathComponent.hasSuffix($0) }) {
                     try? fm.removeItem(at: file)
+                    #if DEBUG
                     print("iMOPS-KERNEL: Gelöscht: \(file.lastPathComponent)")
+                    #endif
                 }
             }
         }
