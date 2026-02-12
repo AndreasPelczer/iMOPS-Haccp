@@ -75,7 +75,9 @@ final class TheBrain {
     func configure(modelContainer: ModelContainer) {
         self.journal = Journal(modelContainer: modelContainer)
         self.auditTrail = AuditTrail(modelContainer: modelContainer)
+        #if DEBUG
         print("iMOPS-KERNEL: Persistence layer configured. Journal + AuditTrail active.")
+        #endif
     }
 
     // MARK: - Matrix Engine (Internal)
@@ -164,7 +166,9 @@ final class TheBrain {
     /// audit: false unterdrückt Journal/Audit (für Replay, damit kein doppeltes Protokoll entsteht).
     func set(_ path: String, _ value: Any, audit: Bool = true) {
         guard validate(path) else {
+            #if DEBUG
             print("iMOPS-KERNEL-ERROR: Ungültiger Pfad (SET): \(path)")
+            #endif
             return
         }
 
@@ -181,8 +185,9 @@ final class TheBrain {
         let end = DispatchTime.now()
         let nanoTime = end.uptimeNanoseconds - start.uptimeNanoseconds
 
-        // Performance-Log: Für das Gefühl von unendlicher Power
+        #if DEBUG
         print("iMOPS-CORE-SPEED: \(path) gesetzt in \(nanoTime) ns")
+        #endif
 
         // Event Sourcing: Journal + Audit (nur bei echten Operationen, nicht bei Replay)
         if audit {
@@ -194,7 +199,9 @@ final class TheBrain {
     /// Der G-Befehl (Get) - Typsicherer Zugriff auf die Wahrheit.
     func get<T>(_ path: String) -> T? {
         guard validate(path) else {
+            #if DEBUG
             print("iMOPS-KERNEL-ERROR: Ungültiger Pfad (GET): \(path)")
+            #endif
             return nil
         }
 
@@ -207,7 +214,9 @@ final class TheBrain {
     /// audit: false unterdrückt Journal/Audit (für Replay).
     func kill(_ path: String, audit: Bool = true) {
         guard validate(path) else {
+            #if DEBUG
             print("iMOPS-KERNEL-ERROR: Ungültiger Pfad (KILL): \(path)")
+            #endif
             return
         }
 
@@ -229,7 +238,9 @@ final class TheBrain {
     /// audit: false unterdrückt Journal/Audit (für Replay).
     func killTree(prefix: String, audit: Bool = true) {
         guard validate(prefix) else {
+            #if DEBUG
             print("iMOPS-KERNEL-ERROR: Ungültiger Prefix (KILLTREE): \(prefix)")
+            #endif
             return
         }
 
@@ -296,7 +307,9 @@ final class TheBrain {
             applyEventForReplay(ev)
         }
 
+        #if DEBUG
         print("iMOPS-KERNEL: Rebuild abgeschlossen. \(filtered.count) Events angewendet.")
+        #endif
     }
 
     // MARK: - Time-Travel (NEU)
@@ -352,6 +365,19 @@ final class TheBrain {
         return log
     }
 
+    /// Holt alle offenen Task-IDs aus dem Kernel
+    func getOpenTaskIDs() -> [String] {
+        let snapshot = kernelQueue.sync { storage }
+        let taskKeys = snapshot.keys.filter {
+            $0.hasPrefix("^TASK.") && $0.hasSuffix(".STATUS") && (snapshot[$0] as? String == "OPEN")
+        }
+        return taskKeys.compactMap { key in
+            let components = key.components(separatedBy: ".")
+            guard components.count >= 3 else { return nil }
+            return components[1]
+        }.sorted()
+    }
+
     /// Holt alle versiegelten IDs aus dem Tresor (^ARCHIVE)
     func getArchiveIDs() -> [String] {
         let snapshot = kernelQueue.sync { storage }
@@ -363,7 +389,9 @@ final class TheBrain {
     }
 
     func simulateRushHour() {
+        #if DEBUG
         print("iMOPS-MATRIX: Starte Belastungssimulation...")
+        #endif
 
         // Wir ballern 10 kritische Bons in den Kernel
         for i in 1...10 {
@@ -374,7 +402,9 @@ final class TheBrain {
             set("^TASK.\(id).STATUS", "OPEN")
         }
 
+        #if DEBUG
         print("iMOPS-MATRIX: Simulation abgeschlossen. Aktueller Score: \(meierScore)")
+        #endif
     }
 
     // MARK: - Seed / Boot
@@ -408,9 +438,11 @@ final class TheBrain {
         set("^SYS.STATUS", "KERNEL ONLINE")
 
         // --- DER TRICK FÜR DEN LOG ---
+        #if DEBUG
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             print("iMOPS-KERNEL: Labor-Seed abgeschlossen. Matrix-Score: \(self.meierScore)")
             print("iMOPS-MATRIX: Harrys Belastung erkannt. System bereit für Service-Druck.")
         }
+        #endif
     }
 }

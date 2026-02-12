@@ -92,7 +92,9 @@ final class AuditTrail {
                     timestamp: entry.timestamp
                 )
                 if computed != entry.chainHash {
+                    #if DEBUG
                     print("iMOPS-AUDIT: INTEGRITY VIOLATION at entry \(entry.id)")
+                    #endif
                     return false
                 }
                 expectedHash = entry.chainHash

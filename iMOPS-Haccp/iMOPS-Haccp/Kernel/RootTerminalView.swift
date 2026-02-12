@@ -78,16 +78,19 @@ struct EmployeeRow: View {
     let id: String
 
     var body: some View {
+        let name: String = iMOPS.GET(.brigade(id, "NAME")) ?? id
+        let role: String = iMOPS.GET(.brigade(id, "ROLE")) ?? "STAFF"
+
         Button(action: {
             iMOPS.SET(.nav("ACTIVE_USER"), id)
             iMOPS.GOTO("PRODUCTION")
         }) {
             HStack {
                 VStack(alignment: .leading) {
-                    Text(iMOPS.GET(.brigade(id, "NAME")) ?? id)
+                    Text(name)
                         .font(.system(size: 18, weight: .bold, design: .monospaced))
 
-                    Text(iMOPS.GET(.brigade(id, "ROLE")) ?? "STAFF")
+                    Text(role)
                         .font(.caption)
                         .foregroundColor(.orange)
                 }
@@ -100,6 +103,9 @@ struct EmployeeRow: View {
             .cornerRadius(8)
             .foregroundColor(.white)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(name), \(role)")
+        .accessibilityHint("Doppeltippen um als \(name) einzuloggen")
     }
 }
 
@@ -109,6 +115,7 @@ struct EmployeeTerminalView: View {
             Text("BRIGADE LOG-IN")
                 .font(.headline)
                 .foregroundColor(.orange)
+                .accessibilityAddTraits(.isHeader)
 
             EmployeeRow(id: "HARRY")
             EmployeeRow(id: "LUKAS")
@@ -116,6 +123,7 @@ struct EmployeeTerminalView: View {
             Button("ZURÜCK") { iMOPS.GOTO("HOME") }
                 .padding()
                 .foregroundColor(.gray)
+                .accessibilityLabel("Zurück zum Hauptmenü")
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
